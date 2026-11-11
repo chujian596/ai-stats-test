@@ -431,7 +431,7 @@ var LOCK_KEY = 'app_lock_v1';
 var ADMIN_CODE = 'xg2024!oa';
 // 设备白名单：从whitelist.json远程拉取
 // 强制版本检查
-var APP_VER = 'v58.1-test';
+var APP_VER = 'v58.2-test';
 window.onerror = function(msg, url, line){
   var d = document.createElement('div');
   d.style.cssText='position:fixed;top:0;left:0;right:0;background:red;color:#fff;padding:10px;z-index:99999;font-size:12px;word-break:break-all';
@@ -1883,7 +1883,9 @@ function refreshFlySummary(){
         '总单 <b>' + total.toFixed(0) + '</b> | 应飞总额 <b style="color:#cf1322">' + _r.totalFly.toFixed(0) + '</b><br>' +
         '已飞 ' + _r.already.toFixed(0) + ' | 本轮应飞 <b style="color:#cf1322;font-size:16px">' + _r.thisRound.toFixed(0) + '</b>';
     }
-    if(currentFlyGroup) showGroupDetail(currentFlyGroup);
+    var box = document.getElementById('sideSplitResult');
+    if(currentFlyGroup){ showGroupDetail(currentFlyGroup); }
+    else if(box && box.innerHTML.trim() !== ''){ showAllFlyDir(); }
   } catch(e){}
 }
 function showAllFlyDir(){
@@ -4937,7 +4939,7 @@ function renderRisk(){
   box.innerHTML = h;
 }
 
-// 测试版内置自检：随机造单跑解析器
+// 测试版内置自检
 function runSelfTest(){
   var rnd=function(a){return a[Math.floor(Math.random()*a.length)];};
   var rint=function(a,b){return a+Math.floor(Math.random()*(b-a+1));};
@@ -4952,7 +4954,7 @@ function runSelfTest(){
         var n=nums(rint(1,5)).join(rnd(SEP));
         text=rnd(['','特','特码','特:'])+n+' 各'+amt;
         var r=parseLine(text);
-        var got=(r.codes||[]).filter(function(c){return /^\d{2}$/.test(c);}).sort();
+        var got=(r.codes||[]).filter(function(c){return /^\d{2}$/.test(c);});
         if(r.price===amt && got.length>=1) pass++; else { fail++; errs.push(text+' => '+JSON.stringify(r)); }
       } else if(kind==='pte'){
         var zs='龙虎蛇马'.split('').sort(function(){return Math.random()-0.5;}).slice(0,rint(1,3)).join('');
