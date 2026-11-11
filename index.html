@@ -431,7 +431,7 @@ var LOCK_KEY = 'app_lock_v1';
 var ADMIN_CODE = 'xg2024!oa';
 // 设备白名单：从whitelist.json远程拉取
 // 强制版本检查
-var APP_VER = 'v58.0-test';
+var APP_VER = 'v58.1-test';
 window.onerror = function(msg, url, line){
   var d = document.createElement('div');
   d.style.cssText='position:fixed;top:0;left:0;right:0;background:red;color:#fff;padding:10px;z-index:99999;font-size:12px;word-break:break-all';
@@ -1858,11 +1858,24 @@ function sideSplitCopyAuto(){
 }
 
 var currentFlyGroup = null; // 当前查看的飞单分组
+function grandOrderTotal(){
+  // 全产品总单 = 特码 + 平特 + 二中二三中三（与底部三卡片口径一致）
+  let g = 0;
+  const sales = getSplitSales();
+  g += Object.keys(sales).reduce((s,k)=>s+sales[k],0);
+  const pteMap = {};
+  orders.forEach(o => { (o.codes||[]).forEach(c => {
+    if(typeof c==='string' && c.startsWith('平特')) pteMap[c]=(pteMap[c]||0)+codeSalesForOrder(o,c);
+  });});
+  g += Object.values(pteMap).reduce((s,a)=>s+a,0);
+  orders.forEach(o => { (o.codes||[]).forEach(c => {
+    if(typeof c==='string' && (c.indexOf('二中二:')===0||c.indexOf('三中三:')===0||c.indexOf('三中二:')===0)) g += codeSalesForOrder(o,c);
+  });});
+  return g;
+}
 function refreshFlySummary(){
   try {
-    const sales = getSplitSales();
-    const keys = Object.keys(sales);
-    const total = keys.reduce((s,k) => s + sales[k], 0);
+    const total = grandOrderTotal();
     const _r = getThisRoundFly();
     const sumEl = document.getElementById('sideSplitSummary');
     if(sumEl){
@@ -2214,9 +2227,7 @@ function resetFlown(){
   currentFlyGroup = null;
   // 刷新摘要
   try {
-    const sales = getSplitSales();
-    const keys = Object.keys(sales);
-    const total = keys.reduce((s,k) => s + sales[k], 0);
+    const total = grandOrderTotal();
     const _r = getThisRoundFly();
     const sumEl = document.getElementById('sideSplitSummary');
     if(sumEl){
@@ -4585,9 +4596,9 @@ function renderRisk(){
   // 今日汇总条
   h += `<div style="display:flex;gap:4px;margin:6px 0">`;
   h += `<div style="flex:1;background:#f8f9fa;border-radius:8px;padding:8px;text-align:center"><div style="font-size:11px;color:#999">总单</div><b style="font-size:16px">${fullTotalSales.toFixed(0)}</b></div>`;
-  const totalFly = currentFly + pteFlyAmt + lxFlyAmt + (emFlyOn ? emFlySales : 0);
-  h += `<div style="flex:1;background:#f8f9fa;border-radius:8px;padding:8px;text-align:center"><div style="font-size:11px;color:#999">已飞</div><b style="font-size:16px;color:#cf1322">${totalFly.toFixed(0)}</b></div>`;
-  h += `<div style="flex:1;background:#f8f9fa;border-radius:8px;padding:8px;text-align:center"><div style="font-size:11px;color:#999">自留</div><b style="font-size:16px;color:#16a34a">${keptCash.toFixed(0)}</b></div>`;
+  const _fr = getThisRoundFly();
+  h += `<div style="flex:1;background:#f8f9fa;border-radius:8px;padding:8px;text-align:center"><div style="font-size:11px;color:#999">已飞(实际)</div><b style="font-size:16px;color:#cf1322">${_fr.already.toFixed(0)}</b></div>`;
+  h += `<div style="flex:1;background:#f8f9fa;border-radius:8px;padding:8px;text-align:center"><div style="font-size:11px;color:#999">待飞</div><b style="font-size:16px;color:#d97706">${_fr.thisRound.toFixed(0)}</b></div>`;
   h += `</div>`;
   // 已开奖：显示实际结果
   if(lastDraw && lastDraw.specialNum){
@@ -4926,7 +4937,7 @@ function renderRisk(){
   box.innerHTML = h;
 }
 
-// 测试版内置自检：随机造单跑解析器，核对号码/金额是否认对
+// 测试版内置自检：随机造单跑解析器
 function runSelfTest(){
   var rnd=function(a){return a[Math.floor(Math.random()*a.length)];};
   var rint=function(a,b){return a+Math.floor(Math.random()*(b-a+1));};
@@ -4935,14 +4946,13 @@ function runSelfTest(){
   var pass=0, fail=0, errs=[];
   for(var i=0;i<300;i++){
     var kind=rnd(['te','te','pte','lx','szs','zez']);
-    var amt=rint(1,50)*10, text='', expect;
+    var amt=rint(1,50)*10, text='';
     try{
       if(kind==='te'){
         var n=nums(rint(1,5)).join(rnd(SEP));
         text=rnd(['','特','特码','特:'])+n+' 各'+amt;
         var r=parseLine(text);
         var got=(r.codes||[]).filter(function(c){return /^\d{2}$/.test(c);}).sort();
-        expect=nums(got.length).sort(); // 只校验条数和金额
         if(r.price===amt && got.length>=1) pass++; else { fail++; errs.push(text+' => '+JSON.stringify(r)); }
       } else if(kind==='pte'){
         var zs='龙虎蛇马'.split('').sort(function(){return Math.random()-0.5;}).slice(0,rint(1,3)).join('');
